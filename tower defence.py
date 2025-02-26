@@ -1,12 +1,18 @@
 # tital and top labels 
 
 from tkinter import Tk,Canvas,Label, Button
+from tkinter.ttk import Progressbar
 import time, random, array
 window=Tk()
 window.title("Tower Defence game")
 
 window.config(background='grey')
 
+user_health = 50
+
+user_health_progressbar = Progressbar(window,length=100,mode="determinate",max=50)
+user_health_progressbar.grid(row=0,column=1)
+user_health_progressbar["value"] = user_health
 
 
 
@@ -26,7 +32,7 @@ TRACKY = [  0.0,50.0, 50.0,100.0,100.0,145.0,200.0,220.0,370.0,370.0,400.0]
 game_state = 0 
 
 canvas=Canvas(window,width=CANVAS_WIDTH,height=CANVAS_HEIGHT,bd=0,highlightthickness=0)
-canvas.grid(row=1,column=0,columnspan=2)
+canvas.grid(row=1,column=1,columnspan=2)
 
 i=1
 while i < len(TRACKX) :
@@ -41,11 +47,12 @@ while i < len(TRACKX) :
 
 # balloon variable code
 BALLOON_SIZE = 25
-BALLOON_INITIAL_HEALTH = 5
+BALLOON_INITIAL_HEALTH = 3
 BWS_IN_ROUND = 2
 BWS_SPAWNING = 3
 BWS_BETWEEN_ROUND = 4
 BALLOON_SPAWN_FREQUENCY = 15
+BETWEEN_ROUND_TICKS = 200
 
 balloon_wave_state = BWS_BETWEEN_ROUND
 
@@ -67,8 +74,9 @@ def spawn_balloon():
     
     balloon_img.append( canvas.create_oval(0,0,BALLOON_SIZE,BALLOON_SIZE,fill="green"))
     balloon_health.append(BALLOON_INITIAL_HEALTH)
+    balloon_amount_tracker.config(text=len(balloonx))
 
-#
+
 # ball = canvas.create_oval(-BALLOON_SIZE/2,-BALLOON_SIZE/2,BALLOON_SIZE/2,BALLOON_SIZE/2,fill="green")
 
 
@@ -159,15 +167,30 @@ tower_state = list()
 tower_state_ticks = list()
 tower_target = list()
 
+
+
+
 placing_tower = -1
 
 def delete_balloon(balloon):
+    global tower_target
+    global tower_state
+    global tower_state_ticks
+    t = 0
+    while t < len(tower_state):
+        if tower_target[t] == balloon:
+            tower_state[t] = TS_SEARCHING
+            tower_state_ticks[t] = 0
+            tower_target[t] = -1
+        t=t+1
+
     canvas.delete(balloon_img[balloon])
     balloonx.pop(balloon)
     balloony.pop(balloon)
     balloon_track.pop(balloon)
     balloon_img.pop(balloon)
     balloon_health.pop(balloon)
+    balloon_amount_tracker.config(text=len(balloonx))
 
 def delete_tower(tower):
     canvas.delete(tower_img[tower])
@@ -215,9 +238,15 @@ def move_balloons():
         if new_track:
             balloon_track[i]=balloon_track[i]+1
             if balloon_track[i]> len(TRACKX)-2:
-                balloon_track[i] = 0  # TODO:deleteballons instead
-            balloony[i] = TRACKY[balloon_track[i]]
-            balloonx[i] = TRACKX[balloon_track[i]]
+                balloon_health[i] = 0
+                delete_balloon(i)
+                global user_health
+                user_health = user_health -10
+                user_health_progressbar["value"] = user_health
+                i=i-1
+            else:
+                balloony[i] = TRACKY[balloon_track[i]]
+                balloonx[i] = TRACKX[balloon_track[i]]
         i = i+1
 
     global balloon_wave_ticks
@@ -228,24 +257,60 @@ def move_balloons():
     global round_number
     
     if old_state == BWS_BETWEEN_ROUND:
-        if balloon_wave_ticks> BWS_BETWEEN_ROUND:
-            new_state = BWS_SPAWNING
+        if balloon_wave_ticks> BETWEEN_ROUND_TICKS:
             round_number = round_number + 1
+            new_state = BWS_SPAWNING
+            
     elif old_state == BWS_IN_ROUND:
         if len(balloonx) == 0:
             new_state = BWS_BETWEEN_ROUND
 
     elif old_state == BWS_SPAWNING:
-        randint = balloon_wave_ticks%1000 #random(0,999)
+        randint = random.randint(0,999)
+        # random_number = random.randint(1,round_number)
+
         if randint < BALLOON_SPAWN_FREQUENCY:
-            if len(balloonx)<round_number*1: #random
-                spawn_balloon()
+            spawn_balloon()
+            
+            print(round_number)
+
+            if len(balloonx) >= round_number:
+                new_state = BWS_IN_ROUND
+            
+
+
     if old_state!= new_state :
             balloon_wave_state = new_state
             balloon_wave_ticks = 0
+            
 
 def find_closest_balloon(tower):
-    return tower
+
+    
+    global towerx 
+    global towery 
+
+    global balloonx
+    global balloony
+    
+    target_balloon = -1
+    tower_target_distance = CANVAS_WIDTH*CANVAS_WIDTH + CANVAS_HEIGHT*CANVAS_HEIGHT
+    b = 0
+
+    while b < len(balloonx) :
+        deltax = balloonx[b] - towerx[tower]
+        deltay = balloony[b] - towery[tower]
+        square_distance = deltax*deltax + deltay * deltay
+        
+        if square_distance < tower_target_distance:
+            tower_target_distance = square_distance
+            target_balloon = b
+        
+        b = b + 1
+    return target_balloon
+        
+        
+
 
 def tower_update():
     global towerx 
@@ -273,21 +338,28 @@ def tower_update():
 
             if tower_state_ticks[t] > RELOAD_TICKS:
                 tower_target[t] = find_closest_balloon(t)
-                new_state=TS_SHOOT
+                if tower_target[t] >= 0:
+                    new_state=TS_SHOOT
+                
 
         elif old_state == TS_SHOOT:
             canvas.itemconfig(tower_img[t], fill = "black")
             if tower_state_ticks[t] > RELOAD_TICKS:
-                balloon_health[tower_target[t]] = balloon_health[tower_target[t]] - 1
-                set_color_by_number(canvas,balloon_img[tower_target[t]],(int)(balloon_health[tower_target[t]]/BALLOON_INITIAL_HEALTH*255)<<16)
-                if balloon_health[tower_target[t]]<=0:
-                    balloon_health[tower_target[t]] = 0
-                    delete_balloon(tower_target[t])
-                    # need to chekc other tower targets
-                
+                if tower_target[t]>=0 and tower_target[t]< len(balloon_img):
+
+                    set_color_by_number(canvas,balloon_img[tower_target[t]],(int)(balloon_health[tower_target[t]]/BALLOON_INITIAL_HEALTH*255)<<16)
+
+                    balloon_health[tower_target[t]] = balloon_health[tower_target[t]]-1
+
+                    if balloon_health[tower_target[t]]<=0:
+                        balloon_health[tower_target[t]] = 0
+                        delete_balloon(tower_target[t])
+                        # need to chekc other tower targets
+                    
                 new_state=TS_RELOAD
         if old_state!= new_state :
             tower_state[t] = new_state
+            
             tower_state_ticks[t] = 0
         t=t+1
 
@@ -316,6 +388,7 @@ def master_timer():
     window.update()
 
     window.after(TIMER_MILISECANTS,master_timer)
+    
 
 canvas.bind("<Motion>",mouse_move)
 
@@ -323,5 +396,9 @@ canvas.bind("<Button>",mouse_click)
 
 tower_spawn_button = Button(window,text="click to spawn tower",command=start_tower_place)
 tower_spawn_button.grid(row= 1,column=3)
+
+balloon_amount_tracker = Label(window,text=len(balloonx))
+balloon_amount_tracker.grid(column=0,row=0)
+
 master_timer()
 window.mainloop()
