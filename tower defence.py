@@ -120,29 +120,43 @@ def delete_all_balloon():
 spikex = list()
 spikey = list()
 spike_img = list()
-
+spike_endx = list()
+spike_endy = list()
+spike_steps = list()
 SPIKE_SIZE = 20
 SPIKE_DAMAGE = 3
-def spawn_spikes(x,y):
-    spikex.append(x)
-    spikey.append(y)
-    spike_img.append(canvas.create_oval(0,0,SPIKE_SIZE/2,SPIKE_SIZE/2,fill="red"))
-    print("a spike has spawned at "+str(x)+", "+str(y))
+def spawn_spikes(startx,starty,endx,endy,steps):
+    spikex.append(startx)
+    spikey.append(starty)
+    spike_img.append(canvas.create_oval(0,0,SPIKE_SIZE/2,SPIKE_SIZE/2,fill="orange"))
+    spike_endx.append(endx)
+    spike_endy.append(endy)
+    spike_steps.append(steps)
+    print("a spike has spawned at "+str(startx)+", "+str(starty) +" going to "+str(endx)+", "+str(endy))
+
     
 def spike_check():
 
     s=0
     while s< len(spike_img):
 
-        b = find_closest_balloon(spikex[s],spikey[s])
-        if b>=0:
-            deltax = balloonx[b] - spikex[s]
-            deltay = balloony[b] - spikey[s]
-            square_distance = deltax*deltax + deltay * deltay
-            if square_distance<(BALLOON_SIZE*BALLOON_SIZE/4):
-                damage_balloon(b,SPIKE_DAMAGE)
-                delete_spike(s)
-                s=s-1
+        if spike_steps[s] == 0:
+            b = find_closest_balloon(spikex[s],spikey[s])
+            if b>=0:
+                deltax = balloonx[b] - spikex[s]
+                deltay = balloony[b] - spikey[s]
+                square_distance = deltax*deltax + deltay * deltay
+                if square_distance<(BALLOON_SIZE*BALLOON_SIZE/4):
+                    damage_balloon(b,SPIKE_DAMAGE)
+                    delete_spike(s)
+                    s=s-1
+        elif spike_steps[s] > 0:
+            movex = (spikex[s]-spike_endx[s])/spike_steps[s]
+            movey = (spikey[s]-spike_endy[s])/spike_steps[s]
+            spikex[s] = spikex[s]-movex
+            spikey[s] = spikey[s]-movey
+            spike_steps[s] = spike_steps[s]-1
+
         s=s+1
 
 def delete_spike(s):
@@ -150,6 +164,9 @@ def delete_spike(s):
     spikex.pop(s)
     spikey.pop(s)
     spike_img.pop(s)
+    spike_endx.pop(s)
+    spike_endy.pop(s)
+    spike_steps.pop(s)
 def delete_all_spikes():
     i=len(spikex)-1
     while i>=0:
@@ -161,6 +178,9 @@ def delete_all_spikes():
 
 # tower buy code
 next_tower_type = 0
+
+def dummy_img(canvas):
+    return canvas.create_rectangle(-2,-2,-1,-1)
 
 def start_tower_place():
     global placing_tower
@@ -190,6 +210,7 @@ def start_tower_place():
     tower_state_ticks.append(0)
     tower_target.append(-1)
     tower_type.append(next_tower_type)
+    tower_shoot_animation.append(dummy_img(canvas))
     placing_tower = len(towerx)-1
 
 def mouse_click(event):
@@ -242,6 +263,7 @@ tower_state = list()
 tower_state_ticks = list()
 tower_target = list()
 tower_type = list()
+tower_shoot_animation = list()
 
 
 
@@ -251,6 +273,7 @@ placing_tower = -1
 
 def delete_tower(tower):
     canvas.delete(tower_img[tower])
+    canvas.delete(tower_shoot_animation[tower])
     towerx.pop(tower)
     towery.pop(tower)
     tower_state.pop(tower)
@@ -258,6 +281,7 @@ def delete_tower(tower):
     tower_img.pop(tower)
     tower_target.pop(tower)
     tower_type.pop(tower)
+    tower_shoot_animation.pop(tower)
 def delete_all_towers():
     i=len(towerx)-1
     while i>=0:
@@ -328,8 +352,6 @@ def move_balloons():
             user_health = 50
             user_health_progressbar["value"]=user_health
 
-            # delete all towers spikes and balloons
-
     if old_state == BWS_BETWEEN_ROUND:
         if balloon_wave_ticks> BETWEEN_ROUND_TICKS:
             round_number = round_number + 1
@@ -383,36 +405,6 @@ def find_closest_balloon(x,y):
         b = b + 1
     return target_balloon
 
-# def find_closest_track(tower):
-
-    
-#     global towerx 
-#     global towery 
-
-#     global balloonx
-#     global balloony
-    
-#     global TRACKX
-#     global TRACKY
-
-#     target_track = -1
-#     track_target_distance = CANVAS_WIDTH*CANVAS_WIDTH + CANVAS_HEIGHT*CANVAS_HEIGHT
-#     b = 1
-
-#     while b < len(TRACKX)-1 :
-#         deltax = TRACKY[b] - towerx[tower]
-#         deltay = TRACKX[b] - towery[tower]
-#         square_distance = deltax*deltax + deltay * deltay
-        
-#         if square_distance < track_target_distance:
-#             track_target_distance = square_distance
-#             target_track = b
-        
-#         b = b + 1
-#     return target_track        
-   
-    
-
 
 
 def tower_update():
@@ -424,13 +416,13 @@ def tower_update():
     global tower_target
     global tower_type
     RELOAD_TICKS = 100
+    SHOOTING_TICKS = 10
+    SEARCHING_TICKS = 50
     t=0
     while t < len(tower_state):
         tower_state_ticks[t] = tower_state_ticks [t]+1
         old_state = tower_state[t]
         new_state = old_state
-        
-        # if state == TS_PLACING:
         
         if old_state == TS_RELOAD:
             canvas.itemconfig(tower_img[t], fill = "blue")
@@ -445,21 +437,29 @@ def tower_update():
                     new_state=TS_SHOOT 
         elif old_state == TS_SHOOT:
             canvas.itemconfig(tower_img[t], fill = "black")
-            if tower_state_ticks[t] > RELOAD_TICKS:
-                
-                if tower_type[t] == TT_SNIPER:
+
+            if tower_type[t] == TT_SNIPER:
+                canvas.delete(tower_shoot_animation[t])
+                if tower_state_ticks[t]%2==0:
+                    tower_shoot_animation[t] = canvas.create_line(towerx[t],towery[t],balloonx[tower_target[t]],balloony[tower_target[t]],width=5)
+                else:
+                    tower_shoot_animation[t]=dummy_img(canvas)
+                if tower_state_ticks[t] > SHOOTING_TICKS:
                     if tower_target[t]>=0 and tower_target[t]< len(balloon_img):
                         damage_balloon(tower_target[t],1)
-                        
-                        
+                    
+                    
                     new_state=TS_RELOAD
-                elif tower_type[t] == TT_SPIKE:
+            elif tower_type[t] == TT_SPIKE:
+                if tower_state_ticks[t]==1:
                     track = random.randint(0,len(TRACKX)-2)
                     percent_on_track = random.randint(0,99)
                     x= TRACKX[track]+percent_on_track*(TRACKX[track+1]-TRACKX[track])/100.0
                     y= TRACKY[track]+percent_on_track*(TRACKY[track+1]-TRACKY[track])/100.0
-                    spawn_spikes(x,y)
+                    spawn_spikes(towerx[t],towery[t],x,y,SHOOTING_TICKS*10)
+                elif tower_state_ticks[t] > SHOOTING_TICKS:
                     new_state = TS_RELOAD
+                
         if old_state!= new_state :
             tower_state[t] = new_state
             
