@@ -11,8 +11,10 @@ window.config(background='grey')
 user_health = 50
 
 user_health_progressbar = Progressbar(window,length=100,mode="determinate",max=50)
-user_health_progressbar.grid(row=0,column=1)
+user_health_progressbar.grid(row=0,column=2)
 user_health_progressbar["value"] = user_health
+
+
 
 # canvas create
 CANVAS_WIDTH = 500
@@ -27,7 +29,7 @@ TRACKY = [  0.0,50.0, 50.0,100.0,100.0,145.0,200.0,220.0,370.0,370.0,400.0]
 game_state = 0 
 
 canvas=Canvas(window,width=CANVAS_WIDTH,height=CANVAS_HEIGHT,bd=0,highlightthickness=0)
-canvas.grid(row=1,column=1,columnspan=2)
+canvas.grid(row=1,column=1,columnspan=3,rowspan=4)
 
 i=1
 while i < len(TRACKX) :
@@ -38,22 +40,31 @@ while i < len(TRACKX) :
 
 
 # auto round timer/ what happenes every round
-
+def game_starter():
+    # global start_game
+    # start_game = True
+    global balloon_wave_state
+    if balloon_wave_state == BWS_NOT_IN_GAME:
+        balloon_wave_state=BWS_START_GAME
 
 # balloon variable code
 BALLOON_SIZE = 25
 BALLOON_INITIAL_HEALTH = 6
+BWS_NOT_IN_GAME =1
 BWS_IN_ROUND = 2
 BWS_SPAWNING = 3
 BWS_BETWEEN_ROUND = 4
+BWS_START_GAME = 5
 BALLOON_SPAWN_FREQUENCY = 15
 BETWEEN_ROUND_TICKS = 200
 
-balloon_wave_state = BWS_BETWEEN_ROUND
+balloon_wave_state = BWS_NOT_IN_GAME
 
 balloon_wave_ticks = 0
 
 round_number = 0
+
+start_game = False
 
 balloonx = list()
 balloony = list()
@@ -98,6 +109,12 @@ def delete_balloon(balloon):
     balloon_img.pop(balloon)
     balloon_health.pop(balloon)
     balloon_amount_tracker.config(text=len(balloonx))
+
+def delete_all_balloon():
+    i=len(balloonx)-1
+    while i>=0:
+        delete_balloon(i)
+        i=i-1
 # ball = canvas.create_oval(-BALLOON_SIZE/2,-BALLOON_SIZE/2,BALLOON_SIZE/2,BALLOON_SIZE/2,fill="green")
 
 spikex = list()
@@ -133,6 +150,11 @@ def delete_spike(s):
     spikex.pop(s)
     spikey.pop(s)
     spike_img.pop(s)
+def delete_all_spikes():
+    i=len(spikex)-1
+    while i>=0:
+        delete_spike(i)
+        i=i-1
 # baloon function code
 
 
@@ -236,7 +258,11 @@ def delete_tower(tower):
     tower_img.pop(tower)
     tower_target.pop(tower)
     tower_type.pop(tower)
-
+def delete_all_towers():
+    i=len(towerx)-1
+    while i>=0:
+        delete_tower(i)
+        i=i-1
 # timers
 TIMER_MILISECANTS = 10
 BALLOON_SPEED = 1
@@ -291,7 +317,19 @@ def move_balloons():
     old_state = balloon_wave_state
     new_state = old_state
     global round_number
-    
+    global start_game
+
+    if old_state == BWS_START_GAME:
+            new_state = BWS_SPAWNING
+            delete_all_balloon()
+            delete_all_spikes()
+            delete_all_towers()
+            round_number = 1
+            user_health = 50
+            user_health_progressbar["value"]=user_health
+
+            # delete all towers spikes and balloons
+
     if old_state == BWS_BETWEEN_ROUND:
         if balloon_wave_ticks> BETWEEN_ROUND_TICKS:
             round_number = round_number + 1
@@ -312,14 +350,18 @@ def move_balloons():
 
             if len(balloonx) >= random_number:
                 new_state = BWS_IN_ROUND
-            
 
+    if new_state != BWS_NOT_IN_GAME and user_health<=0:
+        start_game = False
+        new_state = BWS_NOT_IN_GAME
+        print("game over")
 
     if old_state!= new_state :
             balloon_wave_state = new_state
             balloon_wave_ticks = 0
-            
 
+            
+        
 def find_closest_balloon(x,y):
 
     global balloonx
@@ -449,7 +491,6 @@ def master_timer():
     spike_check()
     tower_update()
     draw()
-    
     window.update_idletasks()
     window.update()
 
@@ -470,13 +511,16 @@ def tower_type_labler2():
     start_tower_place()
 
 tower_spawn_button = Button(window,text="click to spawn spiker",command=tower_type_labler1,)
-tower_spawn_button.grid(row= 1,column=3)
-
-tower_spawn_button = Button(window,text="click to spawn sniper",command=tower_type_labler2,)
 tower_spawn_button.grid(row= 1,column=4)
 
+tower_spawn_button = Button(window,text="click to spawn sniper",command=tower_type_labler2,)
+tower_spawn_button.grid(row= 3,column=4)
+
 balloon_amount_tracker = Label(window,text=len(balloonx))
-balloon_amount_tracker.grid(column=0,row=0)
+balloon_amount_tracker.grid(column=2,row=5)
+
+game_start_button = Button(window,text="click to start game",command=game_starter)
+game_start_button.grid(row=0,column=3)
 
 def tower_type_labler1():
     global next_tower_type
