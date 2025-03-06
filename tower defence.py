@@ -8,6 +8,8 @@ window.title("Tower Defence game")
 
 window.config(background='dark grey')
 
+window.resizable(False,False)
+
 user_health = 50
 
 user_health_progressbar = Progressbar(window,length=100,mode="determinate",max=50)
@@ -29,70 +31,49 @@ income_amount_tracker.grid(column=3,row=5)
 
 # canvas create
 CANVAS_WIDTH = 500
-
 CANVAS_HEIGHT = 400
+canvas=Canvas(window,width=CANVAS_WIDTH,height=CANVAS_HEIGHT,bd=0,highlightthickness=0,background="sky blue")
+canvas.grid(row=1,column=1,columnspan=3,rowspan=4)
 
-TRACK_GERTH = 10
+# general functions
+def set_color_by_number(canvas, item_id, color_number):
+    """Sets the color of a canvas item using a color number."""
+    hex_color = '#{:02x}{:02x}{:02x}'.format((color_number >> 16) & 0xFF, (color_number >> 8) & 0xFF, color_number & 0xFF)
+    canvas.itemconfig(item_id, fill=hex_color)
+    
+def dummy_img(canvas):
+    return canvas.create_rectangle(-2,-2,-1,-1)
 
+
+# ----------------- TRACK SECTION -----------------
+# track table
+TRACK_WIDTH = 10
 TRACKX = [ 30.0,80.0,250.0,300.0,335.0,335.0,280.0,300.0,450.0,470.0,500.0]
 TRACKY = [  0.0,50.0, 50.0,100.0,100.0,145.0,200.0,220.0,370.0,370.0,400.0]
 #             50.0   170   50    35   45    65     20   150    
+i=1
+while i < len(TRACKX) :
+    throwaway_track = canvas.create_line(TRACKX[i-1],TRACKY[i-1],TRACKX[i],TRACKY[i],width=TRACK_WIDTH) 
+    i=i+1
 
+# ----------------- BALLOON SECTION -----------------
+
+# Balloon color table
 BALLOON_COLOR_UPPER = [  7, 14, 21, 28]
 BALLOON_COLOR_RED =   [255,  0,  0,255]
 BALLOON_COLOR_GREEN = [  0,  0,255,255]
 BALLOON_COLOR_BLUE =  [  0,255,  0,255]
 
-game_state = 0 
-
-canvas=Canvas(window,width=CANVAS_WIDTH,height=CANVAS_HEIGHT,bd=0,highlightthickness=0,background="sky blue")
-canvas.grid(row=1,column=1,columnspan=3,rowspan=4)
-
-i=1
-while i < len(TRACKX) :
-    throwaway_track = canvas.create_line(TRACKX[i-1],TRACKY[i-1],TRACKX[i],TRACKY[i],width=TRACK_GERTH) 
-    i=i+1
-    
-
-
-
-# auto round timer/ what happenes every round
-def game_starter():
-    # global start_game
-    # start_game = True
-    global balloon_wave_state
-    if balloon_wave_state == BWS_NOT_IN_GAME:
-        balloon_wave_state=BWS_START_GAME
-
-# balloon variable code
+# Balloon constants
 BALLOON_SIZE = 25
-BALLOON_INITIAL_HEALTH = 6
-BWS_NOT_IN_GAME =1
-BWS_IN_ROUND = 2
-BWS_SPAWNING = 3
-BWS_BETWEEN_ROUND = 4
-BWS_START_GAME = 5
-BALLOON_SPAWN_FREQUENCY = 15
-BETWEEN_ROUND_TICKS = 200
+BALLOON_INITIAL_HEALTH = 2
 
-INITIAL_SNIPER_DAMAGE = 2
-
-balloon_wave_state = BWS_NOT_IN_GAME
-
-balloon_wave_ticks = 0
-
-spawned_balloons = 0
-
-round_number = 0
-
-start_game = False
-
+# Balloon table
 balloonx = list()
 balloony = list()
 balloon_track = list()
 balloon_img = list()
 balloon_health = list()
-
 
 def spawn_balloon(health_multiplier):
     balloon_health_calc = BALLOON_INITIAL_HEALTH + health_multiplier
@@ -134,23 +115,6 @@ def damage_balloon(b,damage):
     balloon_health[b] = balloon_health[b]-damage
     
     color_balloon(b)
-
-
-
-    # if balloon_health[b]<=7:
-    #     balloon_color_set = 16
-    #     color_number = (int)(balloon_health[b]/BALLOON_INITIAL_HEALTH*255)<<balloon_color_set
-    # elif balloon_health[b]<= 14:
-    #     balloon_color_set = 8
-    #     color_number = (int)(balloon_health[b]/BALLOON_INITIAL_HEALTH*255)<<balloon_color_set
-    # elif balloon_health[b]<=21:
-    #     balloon_color_set = 0
-    #     color_number = (int)(balloon_health[b]/BALLOON_INITIAL_HEALTH*255)
-    # elif balloon_health[b]<=28:
-    #     balloon_color_set = 24
-    #     color_number = (int)(balloon_health[b]/BALLOON_INITIAL_HEALTH*255)<< balloon_color_set
-    # set_color_by_number(canvas,balloon_img[b],color_number)
-
     if balloon_health[b]<=0:
         balloon_health[b] = 0
         delete_balloon(b,10)
@@ -184,197 +148,8 @@ def delete_all_balloon():
     while i>=0:
         delete_balloon(i,0)
         i=i-1
-# ball = canvas.create_oval(-BALLOON_SIZE/2,-BALLOON_SIZE/2,BALLOON_SIZE/2,BALLOON_SIZE/2,fill="green")
 
-spikex = list()
-spikey = list()
-spike_img = list()
-spike_endx = list()
-spike_endy = list()
-spike_steps = list()
-SPIKE_SIZE = 20
-SPIKE_INITIAL_DAMAGE = 3
-spike_max = 30
-spike_damage = SPIKE_INITIAL_DAMAGE
-spiker_tower_upgrade_cost = 500
-def spawn_spikes(startx,starty,endx,endy,steps):
-    global spike_amount
-    spikex.append(startx)
-    spikey.append(starty)
-    spike_img.append(canvas.create_oval(0,0,SPIKE_SIZE/2,SPIKE_SIZE/2,fill="orange"))
-    spike_endx.append(endx)
-    spike_endy.append(endy)
-    spike_steps.append(steps)
-    spike_amount = len(spike_img)
-    if len(spike_img) >= spike_max:
-        delete_spike(0)
-    print("a spike has spawned at "+str(startx)+", "+str(starty) +" going to "+str(endx)+", "+str(endy))
-
-    
-def spike_check():
-    global spike_amount
-    global spike_damage
-    s=0
-    while s< len(spike_img):
-
-        if spike_steps[s] == 0:
-            b = find_closest_balloon(spikex[s],spikey[s])
-            if b>=0:
-                deltax = balloonx[b] - spikex[s]
-                deltay = balloony[b] - spikey[s]
-                square_distance = deltax*deltax + deltay * deltay
-                if square_distance<(BALLOON_SIZE*BALLOON_SIZE/4):
-                    damage_balloon(b,spike_damage)
-                    delete_spike(s)
-                    spike_amount = len(spike_img)
-                    s=s-1
-        elif spike_steps[s] > 0:
-            movex = (spikex[s]-spike_endx[s])/spike_steps[s]
-            movey = (spikey[s]-spike_endy[s])/spike_steps[s]
-            spikex[s] = spikex[s]-movex
-            spikey[s] = spikey[s]-movey
-            spike_steps[s] = spike_steps[s]-1
-
-        s=s+1
-
-def delete_spike(s):
-    canvas.delete(spike_img[s])
-    spikex.pop(s)
-    spikey.pop(s)
-    spike_img.pop(s)
-    spike_endx.pop(s)
-    spike_endy.pop(s)
-    spike_steps.pop(s)
-def delete_all_spikes():
-    i=len(spikex)-1
-    while i>=0:
-        delete_spike(i)
-        i=i-1
-# baloon function code
-
-
-
-# tower buy code
-next_tower_type = 0
-
-def dummy_img(canvas):
-    return canvas.create_rectangle(-2,-2,-1,-1)
-
-def start_tower_place():
-    global placing_tower
-    global towerx 
-    global towery 
-    global tower_img 
-    global tower_state 
-    global tower_state_ticks 
-    global tower_target
-    global tower_type
-    if placing_tower >= 0 :
-        delete_tower(placing_tower)
-        
-        placing_tower = -1
-        return
-    TOWER_MAX = 10
-    if len(towerx) >= TOWER_MAX:
-        delete_tower(0)
-
-   
-    towerx.append(-10000)
-    towery.append(-10000)
-    
-    tower_img.append( canvas.create_rectangle(0,0,TOWER_SIZE,TOWER_SIZE,fill="red"))
-
-    tower_state.append(TS_PLACING)
-    tower_state_ticks.append(0)
-    tower_target.append(-1)
-    tower_type.append(next_tower_type)
-    tower_shoot_animation.append(dummy_img(canvas))
-    placing_tower = len(towerx)-1
-    tower_amount_stat.config(text="there are: "+ str(len(towerx))+" towers")
-def mouse_click(event):
-    global towerx 
-    global towery 
-    global tower_img 
-    global tower_state 
-    global tower_state_ticks 
-    global placing_tower
-    global TS_SEARCHING
-
-    if placing_tower >= 0 :
-        towerx[placing_tower] = event.x
-        towery[placing_tower] = event.y
-        tower_state[placing_tower] = TS_SEARCHING
-        tower_state_ticks[placing_tower]=0
-        placing_tower = -1
-
-    
-def set_color_by_number(canvas, item_id, color_number):
-    """Sets the color of a canvas item using a color number."""
-    hex_color = '#{:02x}{:02x}{:02x}'.format((color_number >> 16) & 0xFF, (color_number >> 8) & 0xFF, color_number & 0xFF)
-    canvas.itemconfig(item_id, fill=hex_color)
-    
-def mouse_move(event):
-    global towerx 
-    global towery 
-    global tower_img 
-    global tower_state 
-    global tower_state_ticks 
-
-    if placing_tower >= 0:
-        towerx[placing_tower] = event.x
-        towery[placing_tower] = event.y
-
-# tower generate code
-TOWER_SIZE = 30
-TS_PLACING = 0
-TS_SEARCHING = 1
-TS_SHOOT = 2
-TS_RELOAD = 3
-
-TT_SPIKE = 1
-TT_SNIPER = 2
-
-towerx = list()
-towery = list()
-tower_img = list()
-tower_state = list()
-tower_state_ticks = list()
-tower_target = list()
-tower_type = list()
-tower_shoot_animation = list()
-
-sniper_tower_upgrade_cost = 500
-
-
-placing_tower = -1
-
-
-
-def delete_tower(tower):
-    canvas.delete(tower_img[tower])
-    canvas.delete(tower_shoot_animation[tower])
-    towerx.pop(tower)
-    towery.pop(tower)
-    tower_state.pop(tower)
-    tower_state_ticks.pop(tower)
-    tower_img.pop(tower)
-    tower_target.pop(tower)
-    tower_type.pop(tower)
-    tower_shoot_animation.pop(tower)
-    tower_amount_stat.config(text="there are: "+ str(len(towerx))+" towers")
-def delete_all_towers():
-    i=len(towerx)-1
-    while i>=0:
-        delete_tower(i)
-        i=i-1
-# timers
-TIMER_MILISECANTS = 10
-BALLOON_SPEED = 1
 def move_balloons():
-    global BALLOON_SPEED
-    global balloon_track
-    global balloonx
-    global balloony
     i=0
     # i represents balloon
     
@@ -415,35 +190,240 @@ def move_balloons():
                 balloonx[i] = TRACKX[balloon_track[i]]
         i = i+1
 
+def find_closest_balloon(x,y):
+
+    global balloonx
+    global balloony
+    
+    target_balloon = -1
+    tower_target_distance = CANVAS_WIDTH*CANVAS_WIDTH + CANVAS_HEIGHT*CANVAS_HEIGHT
+    b = 0
+
+    while b < len(balloonx) :
+        deltax = balloonx[b] - x
+        deltay = balloony[b] - y
+        square_distance = deltax*deltax + deltay * deltay
+        
+        if square_distance < tower_target_distance:
+            tower_target_distance = square_distance
+            target_balloon = b
+        
+        b = b + 1
+    return target_balloon
+
+# ----------------- BWS SECTION -----------------
+BALLOON_SPAWN_FREQUENCY = 15
+BALLOON_BETWEEN_ROUND_TICKS = 200
+BALLOON_SPEED = 1
+
+# Balloon wave states
+BWS_NOT_IN_GAME =1
+BWS_IN_ROUND = 2
+BWS_SPAWNING = 3
+BWS_BETWEEN_ROUND = 4
+BWS_START_GAME = 5
+
+# Balloon variables
+balloon_wave_state = BWS_NOT_IN_GAME
+balloon_wave_ticks = 0
+spawned_balloons = 0
+round_number = 0
+
+def game_starter():
+    global balloon_wave_state
+    if balloon_wave_state == BWS_NOT_IN_GAME:
+        balloon_wave_state=BWS_START_GAME
+
+# ----------------- SPIKE SECTION -----------------
+SPIKE_SIZE = 20
+SPIKE_INITIAL_DAMAGE = 3
+SPIKE_MAX = 30
+SPIKE_UPGRADE_INITIAL_COST = 500
+
+spikex = list()
+spikey = list()
+spike_img = list()
+spike_endx = list()
+spike_endy = list()
+spike_steps = list()
+
+spike_damage = SPIKE_INITIAL_DAMAGE
+spike_tower_upgrade_cost = SPIKE_UPGRADE_INITIAL_COST
+
+def spawn_spikes(startx,starty,endx,endy,steps):
+    global spike_amount
+    spikex.append(startx)
+    spikey.append(starty)
+    spike_img.append(canvas.create_oval(0,0,SPIKE_SIZE/2,SPIKE_SIZE/2,fill="orange"))
+    spike_endx.append(endx)
+    spike_endy.append(endy)
+    spike_steps.append(steps)
+    spike_amount = len(spike_img)
+    if len(spike_img) >= SPIKE_MAX:
+        delete_spike(0)
+    print("a spike has spawned at "+str(startx)+", "+str(starty) +" going to "+str(endx)+", "+str(endy))
+
+def spike_check():
+    global spike_amount
+    global spike_damage
+    s=0
+    while s< len(spike_img):
+
+        if spike_steps[s] == 0:
+            b = find_closest_balloon(spikex[s],spikey[s])
+            if b>=0:
+                deltax = balloonx[b] - spikex[s]
+                deltay = balloony[b] - spikey[s]
+                square_distance = deltax*deltax + deltay * deltay
+                if square_distance<(BALLOON_SIZE*BALLOON_SIZE/4):
+                    damage_balloon(b,spike_damage)
+                    delete_spike(s)
+                    spike_amount = len(spike_img)
+                    s=s-1
+        elif spike_steps[s] > 0:
+            movex = (spikex[s]-spike_endx[s])/spike_steps[s]
+            movey = (spikey[s]-spike_endy[s])/spike_steps[s]
+            spikex[s] = spikex[s]-movex
+            spikey[s] = spikey[s]-movey
+            spike_steps[s] = spike_steps[s]-1
+
+        s=s+1
+
+def delete_spike(s):
+    canvas.delete(spike_img[s])
+    spikex.pop(s)
+    spikey.pop(s)
+    spike_img.pop(s)
+    spike_endx.pop(s)
+    spike_endy.pop(s)
+    spike_steps.pop(s)
+def delete_all_spikes():
+    i=len(spikex)-1
+    while i>=0:
+        delete_spike(i)
+        i=i-1
+
+# ----------------- TOWER SECTION -----------------
+TT_SPIKE = 1
+TT_SNIPER = 2
+TOWER_SIZE = 30
+TS_PLACING = 0
+TS_SEARCHING = 1
+TS_SHOOT = 2
+TS_RELOAD = 3
+INITIAL_SNIPER_DAMAGE = 2
+INITIAL_SNIPER_UPGRADE_COST = 500
+
+RELOAD_TICKS = 100
+SHOOTING_TICKS = 10
+SEARCHING_TICKS = 50
+TOWER_MAX = 10
+
+next_tower_type = 0
+placing_tower = -1
+
+towerx = list()
+towery = list()
+tower_img = list()
+tower_state = list()
+tower_state_ticks = list()
+tower_target = list()
+tower_type = list()
+tower_shoot_animation = list()
+
+sniper_tower_upgrade_cost = INITIAL_SNIPER_UPGRADE_COST
+
+def delete_tower(tower):
+    canvas.delete(tower_img[tower])
+    canvas.delete(tower_shoot_animation[tower])
+    towerx.pop(tower)
+    towery.pop(tower)
+    tower_state.pop(tower)
+    tower_state_ticks.pop(tower)
+    tower_img.pop(tower)
+    tower_target.pop(tower)
+    tower_type.pop(tower)
+    tower_shoot_animation.pop(tower)
+    tower_amount_stat.config(text="there are: "+ str(len(towerx))+" towers")
+
+def delete_all_towers():
+    i=len(towerx)-1
+    while i>=0:
+        delete_tower(i)
+        i=i-1
+
+def start_tower_place():
+    global placing_tower
+    if placing_tower >= 0 :
+        delete_tower(placing_tower)
+        
+        placing_tower = -1
+        return
+    if len(towerx) >= TOWER_MAX:
+        delete_tower(0)
+    towerx.append(-10000)
+    towery.append(-10000)
+    
+    tower_img.append( canvas.create_rectangle(0,0,TOWER_SIZE,TOWER_SIZE,fill="red"))
+
+    tower_state.append(TS_PLACING)
+    tower_state_ticks.append(0)
+    tower_target.append(-1)
+    tower_type.append(next_tower_type)
+    tower_shoot_animation.append(dummy_img(canvas))
+    placing_tower = len(towerx)-1
+    tower_amount_stat.config(text="there are: "+ str(len(towerx))+" towers")
+
+def mouse_click(event):
+    global placing_tower
+    if placing_tower >= 0 :
+        towerx[placing_tower] = event.x
+        towery[placing_tower] = event.y
+        tower_state[placing_tower] = TS_SEARCHING
+        tower_state_ticks[placing_tower]=0
+        placing_tower = -1
+
+def mouse_move(event):
+    if placing_tower >= 0:
+        towerx[placing_tower] = event.x
+        towery[placing_tower] = event.y
+
+TIMER_MILISECONDS = 10# MOVE ME
+
+def update_balloon_state():
     global balloon_wave_ticks
     global balloon_wave_state
     balloon_wave_ticks = balloon_wave_ticks+1
     old_state = balloon_wave_state
     new_state = old_state
     global round_number
-    global start_game
     global money_amount
     global income
     global sniper_tower_damage
     global spawned_balloons
-    if old_state == BWS_START_GAME:
-            
-            new_state = BWS_SPAWNING
-            delete_all_balloon()
-            delete_all_spikes()
-            delete_all_towers()
-            round_number = 1
-            user_health = 50
-            income = INITIAL_INCOME
-            income_amount_tracker.config(text="you are gaining "+str(income)+" per round")
-            user_health_progressbar["value"]=user_health
-            money_amount = 800
-            money_amount_tracker.config(text="you have $"+str(money_amount))
-            sniper_tower_damage = INITIAL_SNIPER_DAMAGE
+    global spike_tower_upgrade_cost
+    global sniper_tower_upgrade_cost
+    global user_health
 
+    if old_state == BWS_START_GAME:
+        spike_tower_upgrade_cost = SPIKE_UPGRADE_INITIAL_COST
+        sniper_tower_upgrade_cost = INITIAL_SNIPER_UPGRADE_COST
+        new_state = BWS_SPAWNING
+        delete_all_balloon()
+        delete_all_spikes()
+        delete_all_towers()
+        round_number = 1
+        round_number_stat.config(text="it is round: "+str(round_number))
+        user_health = 50
+        income = INITIAL_INCOME
+        income_amount_tracker.config(text="you are gaining "+str(income)+" per round")
+        user_health_progressbar["value"]=user_health
+        money_amount = 800
+        money_amount_tracker.config(text="you have $"+str(money_amount))
+        sniper_tower_damage = INITIAL_SNIPER_DAMAGE
 
     if old_state == BWS_BETWEEN_ROUND:
-        if balloon_wave_ticks> BETWEEN_ROUND_TICKS:
+        if balloon_wave_ticks> BALLOON_BETWEEN_ROUND_TICKS:
             round_number = round_number + 1
             round_number_stat.config(text="it is round: "+str(round_number))
             money_amount = income + money_amount
@@ -473,7 +453,6 @@ def move_balloons():
                 spawned_balloons = 0
 
     if new_state != BWS_NOT_IN_GAME and user_health<=0:
-        start_game = False
         new_state = BWS_NOT_IN_GAME
         delete_all_balloon()
         print("game over")
@@ -482,43 +461,7 @@ def move_balloons():
             balloon_wave_state = new_state
             balloon_wave_ticks = 0
 
-            
-        
-def find_closest_balloon(x,y):
-
-    global balloonx
-    global balloony
-    
-    target_balloon = -1
-    tower_target_distance = CANVAS_WIDTH*CANVAS_WIDTH + CANVAS_HEIGHT*CANVAS_HEIGHT
-    b = 0
-
-    while b < len(balloonx) :
-        deltax = balloonx[b] - x
-        deltay = balloony[b] - y
-        square_distance = deltax*deltax + deltay * deltay
-        
-        if square_distance < tower_target_distance:
-            tower_target_distance = square_distance
-            target_balloon = b
-        
-        b = b + 1
-    return target_balloon
-
-
-
 def tower_update():
-    global towerx 
-    global towery 
-    global tower_img 
-    global tower_state 
-    global tower_state_ticks 
-    global tower_target
-    global tower_type
-    global sniper_tower_damage
-    RELOAD_TICKS = 100
-    SHOOTING_TICKS = 10
-    SEARCHING_TICKS = 50
     t=0
     while t < len(tower_state):
         tower_state_ticks[t] = tower_state_ticks [t]+1
@@ -544,7 +487,6 @@ def tower_update():
                 if tower_target[t] >= 0:
                     new_state=TS_SHOOT 
         elif old_state == TS_SHOOT:
-            
             tower_target[t] = find_closest_balloon(towerx[t],towery[t])
             if tower_type[t] == TT_SNIPER:
                 canvas.itemconfig(tower_img[t], fill = "black")
@@ -557,8 +499,7 @@ def tower_update():
                 if tower_state_ticks[t] > SHOOTING_TICKS:
                     if tower_target[t]>=0 and tower_target[t]< len(balloon_img):
                         damage_balloon(tower_target[t],sniper_tower_damage)
-                    
-                    
+
                     new_state=TS_RELOAD
             elif tower_type[t] == TT_SPIKE:
                 canvas.itemconfig(tower_img[t], fill = "orange")
@@ -578,8 +519,6 @@ def tower_update():
             tower_state_ticks[t] = 0
         t=t+1
 
-
-
 def draw():
 
     s = 0
@@ -594,19 +533,16 @@ def draw():
     while t<len(towerx):
         canvas.moveto(tower_img[t],towerx[t]-TOWER_SIZE/2,towery[t]-TOWER_SIZE/2)
         t=t+1
-
-    
-
-
 def master_timer():
     move_balloons()
     spike_check()
     tower_update()
     draw()
+    update_balloon_state()
     window.update_idletasks()
     window.update()
 
-    window.after(TIMER_MILISECANTS,master_timer)
+    window.after(TIMER_MILISECONDS,master_timer)
     
 
 canvas.bind("<Motion>",mouse_move)
@@ -687,18 +623,18 @@ def sniper_tower_upgrade():
 def spiker_tower_upgrade():
     global spike_damage
     global spiker_tower_upgrader
-    global spiker_tower_upgrade_cost
+    global spike_tower_upgrade_cost
     global money_amount
     if balloon_wave_state != BWS_NOT_IN_GAME:
-        if spiker_tower_upgrade_cost<= money_amount:
+        if spike_tower_upgrade_cost<= money_amount:
             spike_damage = spike_damage+2
-            money_amount = money_amount-spiker_tower_upgrade_cost
+            money_amount = money_amount-spike_tower_upgrade_cost
             money_amount_tracker.config(text="you have $"+str(money_amount))
-            spiker_tower_upgrade_cost = spiker_tower_upgrade_cost+200
-            spiker_tower_upgrader.config(text="upgrade your spiker tower for $"+str(spiker_tower_upgrade_cost))
+            spike_tower_upgrade_cost = spike_tower_upgrade_cost+200
+            spiker_tower_upgrader.config(text="upgrade your spiker tower for $"+str(spike_tower_upgrade_cost))
 
 sniper_tower_upgrader = Button(window,text="upgrade your sniper tower for $"+str(sniper_tower_upgrade_cost),command=sniper_tower_upgrade,background="grey")
-spiker_tower_upgrader = Button(window,text="upgrade your spiker tower for $"+str(spiker_tower_upgrade_cost),command=spiker_tower_upgrade,background="slate blue")
+spiker_tower_upgrader = Button(window,text="upgrade your spiker tower for $"+str(spike_tower_upgrade_cost),command=spiker_tower_upgrade,background="slate blue")
 
 
 tower_amount_stat = Label(window,text="there are: "+ str(len(towerx))+" towers")
